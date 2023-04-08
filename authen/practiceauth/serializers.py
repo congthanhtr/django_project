@@ -1,6 +1,7 @@
 from rest_framework import serializers
 from django.contrib.auth.models import User
 from rest_framework.exceptions import ValidationError
+from django.contrib.auth.tokens import PasswordResetTokenGenerator
 
 all_users = User.objects.all()
 
@@ -54,7 +55,7 @@ class ChangePasswordSerializer(serializers.ModelSerializer):
         else:
             raise ValidationError('wrong old password')
 
-class ForgotPasswordSerializer(serializers.Serializer):
+class ForgotPasswordRequestSerializer(serializers.Serializer):
     email = serializers.CharField()
 
     def validate(self, attrs):
@@ -62,6 +63,18 @@ class ForgotPasswordSerializer(serializers.Serializer):
             if not all_users.filter(email=attrs['email']):
                 attrs['err'] = 'No email existed'
                 return attrs
+        return attrs
+    
+
+class ForgotPasswordResetSerializer(serializers.Serializer):
+    new_password = serializers.CharField()
+    id = serializers.CharField()
+    token = serializers.CharField()
+
+    def validate(self, attrs):
+        user = all_users.get(id=attrs['id'])
+        if not PasswordResetTokenGenerator().check_token(user, attrs['token']):
+            attrs['err'] = 'token not match with user'
         return attrs
 
 class UserSerializer(serializers.ModelSerializer):

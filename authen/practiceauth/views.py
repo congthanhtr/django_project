@@ -1,3 +1,6 @@
+import datetime
+import os
+from django.conf import settings
 from django.shortcuts import render
 from rest_framework.views import APIView
 from rest_framework import generics
@@ -7,7 +10,7 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action, permission_classes, authentication_classes
-from .serializers import ChangePasswordSerializer, ForgotPasswordSerializer, LoginSerializer, RegisterSerializer
+from .serializers import ChangePasswordSerializer, ForgotPasswordRequestSerializer, ForgotPasswordResetSerializer, LoginSerializer, RegisterSerializer
 from django.contrib.auth import authenticate
 from django.urls import reverse
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
@@ -15,7 +18,9 @@ from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
 from rest_framework import generics
 # Create your views here.
-# Oauth --- login, register, forgot_password
+# Oauth --- login, register, forgot_password (change password, reset password(?))
+# Authorization
+# Pagination
 # Refresh Token
 # Oauth2
 # Swagger
@@ -24,7 +29,7 @@ from rest_framework import generics
 # Docker
 # Chatting
 # Unit Test
-
+# DB indexing
 
 class LoginView(APIView):
     
@@ -49,6 +54,8 @@ class LoginView(APIView):
 
 class AuthViewSet(viewsets.ModelViewSet):
 
+    queryset=User.objects.all()
+
     @action(methods=['POST'], detail=False, url_path='login', url_name='login')
     def login(self, request):
         serializer = LoginSerializer(data=request.data)
@@ -62,6 +69,8 @@ class AuthViewSet(viewsets.ModelViewSet):
             return Response('Invalid Credentials', status=status.HTTP_401_UNAUTHORIZED)
     
         token = RefreshToken().for_user(user=user)
+        user.last_login = datetime.now()
+        user.save()
         return Response(data={
             'refresh_token': str(token),
             'access_token': str(token.access_token)
@@ -90,23 +99,41 @@ class AuthViewSet(viewsets.ModelViewSet):
             })
         else:
             return Response(validated_data['err'], status=status.HTTP_400_BAD_REQUEST)
+        
+    @action(methods=['POST'], detail=False, url_name='forgot-password-request', url_path='forgot-password-request')
+    def forgor_password_request(self, request):
+        form_data = request.data
+        serializer = ForgotPasswordRequestSerializer(data=form_data)
+
+        if not serializer.is_valid():
+            return Response('Bad Request', status=status.HTTP_400_BAD_REQUEST)
+        
+        if 'err' in serializer.validated_data:
+            return Response(data=serializer.validated_data['err'], status=status.HTTP_400_BAD_REQUEST)
+        
+        user = self.get_queryset().get(email=serializer.validated_data['email'])
+        token = PasswordResetTokenGenerator().make_token(user)
+        
+        reset_url = f"{settings.DOMAIN_NAME}/forgot-password-reset/{user.id}/{token}"
+        return Response({
+            'message': f'password reset link: {reset_url}'
+        }, status=status.HTTP_200_OK)
     
-    @action(methods=['POST'], detail=False, url_path='forgot-password', url_name='forgot-password')
+    @action(methods=['POST'], detail=False, url_path=r'forgot-password-reset', url_name='forgot-password-reset')
     def forgot_password(self, request):
         form_data = request.data
-        serializer = ForgotPasswordSerializer(data=form_data)
+        serializer = ForgotPasswordResetSerializer(data=form_data)
 
         if not serializer.is_valid():
             return Response('Bad Request', status=status.HTTP_400_BAD_REQUEST)
         
         validated_data = serializer.validated_data
         if 'err' not in validated_data:
-            user = self.get_queryset().filter(email=validated_data['email'])
-            token = PasswordResetTokenGenerator().make_token(user)
-            reset_url = reverse("reset-password", kwargs={"id":user.id, "token": token})
-            reset_url = f"localhost:8000{reset_url}"
+            user = self.get_queryset().get(id=validated_data['id'])
+            user.set_password(validated_data['new_password'])
+            user.save()
             return Response({
-                'message': f'password reset link: {reset_url}'
+                'message': f'password has been reseted'
             }, status=status.HTTP_200_OK)
         else:
             return Response(data=validated_data['err'], status=status.HTTP_400_BAD_REQUEST)

@@ -23,7 +23,10 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 
 # SECURITY WARNING: keep the secret key used in production secret!
 from dotenv import load_dotenv
+
+load_dotenv()
 SECRET_KEY = str(os.getenv('SECRET_KEY'))
+DOMAIN_NAME = str(os.getenv('DOMAIN_NAME'))
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True

@@ -9,7 +9,7 @@ from rest_framework import routers
 
 urlpatterns = [
     # above is my testing
-    path('auth/login/', LoginView.as_view())
+    path('auth/login/', LoginView.as_view()),
 ]
 
 router = routers.SimpleRouter(trailing_slash=False)
