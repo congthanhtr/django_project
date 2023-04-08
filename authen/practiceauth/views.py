@@ -10,13 +10,13 @@ from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework import status
 from rest_framework.decorators import action, permission_classes, authentication_classes
-from .serializers import ChangePasswordSerializer, ForgotPasswordRequestSerializer, ForgotPasswordResetSerializer, LoginSerializer, RegisterSerializer
+from .serializers import ChangePasswordSerializer, ForgotPasswordRequestSerializer, ForgotPasswordResetSerializer, LoginSerializer, RegisterSerializer, UserSerializer
 from django.contrib.auth import authenticate
 from django.urls import reverse
 from django.contrib.auth.tokens import PasswordResetTokenGenerator
 from rest_framework_simplejwt.tokens import RefreshToken
 from django.contrib.auth.models import User
-from rest_framework import generics
+from django.core.paginator import Paginator
 # Create your views here.
 # Oauth --- login, register, forgot_password (change password, reset password(?))
 # Authorization
@@ -171,8 +171,21 @@ class ChangePasswordViewSet(viewsets.ModelViewSet):
 
 class UserViewSet(viewsets.ModelViewSet):
     queryset = User.objects.all()
+    model = User
+    serializer_class = UserSerializer
+    permission_classes = (IsAuthenticated,)
+    authentication_classes = (JWTAuthentication,)
 
     @action(methods=['GET'], detail=False, url_path='list', url_name='list')
     def list_user(self, request):
-        return Response(data=self.get_queryset(), status=status.HTTP_200_OK)
-        # return Response('OK')
+        page = int(request.GET.get('page', '1'))
+        per_page = int(request.GET.get('perPage', '2'))
+        list_data = self.get_serializer(self.get_queryset(), many=True).data
+        paginator = Paginator(list_data, per_page=per_page)
+        return Response(data={
+            'data': paginator.page(page).object_list,
+            'current_page': page,
+            'total_page': paginator.num_pages,
+            'per_page': per_page
+        })
+        
