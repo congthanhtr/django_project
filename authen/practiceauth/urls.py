@@ -5,11 +5,12 @@ from rest_framework_simplejwt.views import (
 )
 from .views import LoginView, AuthViewSet, UserViewSet, ChangePasswordViewSet
 from rest_framework import routers  
-
+from .views import send_email
 
 urlpatterns = [
     # above is my testing
     path('auth/login/', LoginView.as_view()),
+    path('send_email', send_email, name='send_email')
 ]
 
 router = routers.SimpleRouter(trailing_slash=False)

@@ -1,7 +1,9 @@
 import datetime
+import json
 import os
 from django.conf import settings
 from django.shortcuts import render
+import redis
 from rest_framework.views import APIView
 from rest_framework import generics
 from rest_framework import viewsets
@@ -19,17 +21,21 @@ from django.contrib.auth.models import User
 from django.core.paginator import Paginator
 # Create your views here.
 # Oauth --- login, register, forgot_password (change password, reset password(?))
+# Pagination ---
+# Mail Service
 # Authorization
-# Pagination
 # Refresh Token
 # Oauth2
 # Swagger
 # Redis
-# NoSQL
+# NoSQL ---
 # Docker
 # Chatting
 # Unit Test
 # DB indexing
+
+redis_instance = redis.StrictRedis(host=settings.REDIS_HOST,
+                                  port=settings.REDIS_PORT, db=0)
 
 class LoginView(APIView):
     
@@ -180,12 +186,40 @@ class UserViewSet(viewsets.ModelViewSet):
     def list_user(self, request):
         page = int(request.GET.get('page', '1'))
         per_page = int(request.GET.get('perPage', '2'))
-        list_data = self.get_serializer(self.get_queryset(), many=True).data
-        paginator = Paginator(list_data, per_page=per_page)
+        list_user = None
+        if redis_instance.get('list_user'):
+            list_user = redis_instance.get('list_user')
+        else:
+            list_user = self.get_serializer(self.get_queryset(), many=True).data
+            
+        paginator = Paginator(list_user, per_page=per_page)
         return Response(data={
             'data': paginator.page(page).object_list,
             'current_page': page,
             'total_page': paginator.num_pages,
             'per_page': per_page
         })
-        
+
+from django.core.mail import EmailMultiAlternatives, get_connection       
+from django.conf import settings
+from django.views.decorators.csrf import csrf_exempt
+from django.template import Context
+from django.template.loader import render_to_string
+from django.utils.html import strip_tags
+
+@csrf_exempt
+def send_email(request):
+    if request.method == "POST":
+        body = json.loads(request.body)
+        subject = body.get("subject")
+        email_from = settings.EMAIL_HOST_USER
+        recipient_list = body.get("email")
+        message = body.get("message")
+        html_content = render_to_string('simple_mail.html', context={'messages': message})
+        print(html_content)
+        text_content = strip_tags(html_content)
+        msg = EmailMultiAlternatives(subject=subject,body=text_content,from_email=email_from,to=recipient_list)
+        msg.attach_alternative(html_content, 'text/html')
+        msg.send()
+         
+    return Response("OK")

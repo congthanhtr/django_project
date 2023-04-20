@@ -27,11 +27,21 @@ from dotenv import load_dotenv
 load_dotenv()
 SECRET_KEY = str(os.getenv('SECRET_KEY'))
 DOMAIN_NAME = str(os.getenv('DOMAIN_NAME'))
+REDIS_HOST = 'localhost'
+REDIS_PORT = '6379'
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
 
 ALLOWED_HOSTS = []
+
+EMAIL_BACKEND = 'django.core.mail.backends.smtp.EmailBackend'
+EMAIL_HOST = 'smtp.gmail.com'
+EMAIL_USE_TLS = False
+EMAIL_PORT = 465
+EMAIL_USE_SSL = True
+EMAIL_HOST_USER = str(os.getenv('EMAIL_HOST_USER'))
+EMAIL_HOST_PASSWORD = str(os.getenv('EMAIL_HOST_PASSWORD'))
 
 
 # Application definition
@@ -64,7 +74,7 @@ ROOT_URLCONF = 'authen.urls'
 TEMPLATES = [
     {
         'BACKEND': 'django.template.backends.django.DjangoTemplates',
-        'DIRS': [],
+        'DIRS': [os.path.join(BASE_DIR,'templates')],
         'APP_DIRS': True,
         'OPTIONS': {
             'context_processors': [
